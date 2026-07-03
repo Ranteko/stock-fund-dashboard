@@ -388,10 +388,19 @@
 <div class="modal-bg" id="ioModal">
   <div class="modal">
     <h2>导入 / 导出</h2>
-    <p style="color:var(--muted);font-size:12px;margin:-6px 0 10px">数据存于浏览器 localStorage。建议定期导出 JSON 作备份。</p>
-    <textarea id="ioText" placeholder="粘贴此前导出的 JSON 即可导入；或点击“导出当前持仓”将当前数据填入此处"></textarea>
+    <p style="color:var(--muted);font-size:12px;margin:-6px 0 10px">数据存于浏览器 localStorage。<b>推荐用文件方式</b>，避免复制粘贴或聊天软件把长 JSON 截断。</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <button id="btnExportFile" class="primary" style="flex:1">📥 下载 JSON 文件</button>
+      <label style="flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-size:13px;cursor:pointer;text-align:center;line-height:1.4">
+        📤 选择 JSON 文件导入
+        <input id="ioFileInput" type="file" accept=".json,application/json" style="display:none">
+      </label>
+    </div>
+    <div style="color:var(--muted);font-size:11px;margin:6px 0">— 或者 手动复制/粘贴 JSON 文本 —</div>
+    <textarea id="ioText" placeholder="粘贴此前导出的 JSON 即可导入；或点击"导出到文本框"将当前数据填入此处"></textarea>
+    <div id="ioStat" style="color:var(--muted);font-size:11px;margin-top:6px;line-height:1.5"></div>
     <div class="footer">
-      <button id="btnExport">导出当前持仓</button>
+      <button id="btnExport">导出到文本框</button>
       <button id="btnImport" class="primary">从上方导入</button>
       <button id="btnIOClose">关闭</button>
     </div>
@@ -3611,29 +3620,114 @@ function deleteEdit(){
 }
 
 /* ---------- 9. 导入/导出 ---------- */
-function openIO(){ document.getElementById('ioText').value=''; document.getElementById('ioModal').classList.add('open'); }
+function openIO(){
+  document.getElementById('ioText').value = '';
+  document.getElementById('ioStat').textContent = '';
+  document.getElementById('ioModal').classList.add('open');
+}
 function closeIO(){ document.getElementById('ioModal').classList.remove('open'); }
+function _ioStat(msg, isErr){
+  const el = document.getElementById('ioStat');
+  if(!el) return;
+  el.style.color = isErr ? 'var(--down)' : 'var(--muted)';
+  el.textContent = msg;
+}
 function exportData(){
-  document.getElementById('ioText').value = JSON.stringify(state, null, 2);
-  toast('已导出，复制文本即可备份');
+  const txt = JSON.stringify(state, null, 2);
+  document.getElementById('ioText').value = txt;
+  const size = new Blob([txt]).size;
+  _ioStat(`已导出到文本框，共 ${(size/1024).toFixed(1)} KB / ${state.positions.length} 项持仓。⚠️ 大数据用文件按钮更稳，避免复制截断`);
+}
+function exportDataFile(){
+  const txt = JSON.stringify(state, null, 2);
+  const blob = new Blob([txt], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const d = new Date();
+  const stamp = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '_' + String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
+  a.download = `stock-fund-backup-${stamp}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('已下载 JSON 文件');
+}
+// 兼容多种"文本"来源：文件、文本框、剪贴板；做完整性校验
+function _tryParseJSON(rawInput){
+  const raw = String(rawInput || '').trim();
+  if(!raw) return { ok:false, err:'空文本' };
+  const size = raw.length;
+  // 常见错误 1：末尾是引号或半个字符（截断）
+  const lastChar = raw[raw.length-1];
+  const looksTruncated = lastChar !== '}' && lastChar !== ']';
+  try {
+    const obj = JSON.parse(raw);
+    return { ok:true, obj, size };
+  } catch(e){
+    // 定位错误行列
+    const m = e.message.match(/position (\d+)/i);
+    const pos = m ? parseInt(m[1], 10) : -1;
+    let context = '';
+    if(pos > 0){
+      const before = raw.slice(Math.max(0, pos-30), pos);
+      const after = raw.slice(pos, Math.min(raw.length, pos+30));
+      context = `\n位置 ${pos}/${size} 附近内容：\n  ${before}[❌]${after}`;
+    }
+    let hint = '';
+    if(looksTruncated){
+      hint = `\n⚠️ JSON 末尾字符是"${lastChar}"，看起来被截断了。总长度 ${size} 字节。`
+        + `\n💡 请改用【下载 JSON 文件】+【选择 JSON 文件导入】的方式，避免聊天/剪贴板截断长文本`;
+    }
+    return { ok:false, err: e.message + context + hint, size, pos };
+  }
+}
+function _applyImport(obj){
+  if(!Array.isArray(obj.positions)) throw new Error('格式错误：缺少 positions 数组');
+  // 按 platform+code 去重合并
+  const map = new Map(state.positions.map(p=>[p.platform+'|'+p.code, p]));
+  for(const np of obj.positions){
+    if(!np.id) np.id = id();
+    map.set((np.platform||'未分类')+'|'+np.code, np);
+  }
+  state.positions = [...map.values()];
+  if(obj.settings) Object.assign(state.settings, obj.settings);
+  save(); closeIO(); doRefresh();
+  toast('导入成功，共 '+state.positions.length+' 项持仓');
 }
 function importData(){
-  const txt = document.getElementById('ioText').value.trim();
-  if(!txt) return toast('请先粘贴 JSON', true);
-  try{
-    const obj = JSON.parse(txt);
-    if(!Array.isArray(obj.positions)) throw new Error('格式错误：缺少 positions 数组');
-    // 按 platform+code 去重合并
-    const map = new Map(state.positions.map(p=>[p.platform+'|'+p.code, p]));
-    for(const np of obj.positions){
-      if(!np.id) np.id = id();
-      map.set((np.platform||'未分类')+'|'+np.code, np);
+  const txt = document.getElementById('ioText').value;
+  const res = _tryParseJSON(txt);
+  if(!res.ok){
+    _ioStat(res.err, true);
+    toast('导入失败，看下方详情', true);
+    return;
+  }
+  try {
+    _applyImport(res.obj);
+  } catch(e){
+    _ioStat('导入失败：' + e.message, true);
+    toast(e.message, true);
+  }
+}
+function importFromFile(file){
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const raw = String(ev.target.result || '');
+    document.getElementById('ioText').value = raw;
+    const res = _tryParseJSON(raw);
+    if(!res.ok){
+      _ioStat(`文件读入了 ${(raw.length/1024).toFixed(1)} KB，但解析失败。${res.err}`, true);
+      toast('文件解析失败', true);
+      return;
     }
-    state.positions = [...map.values()];
-    if(obj.settings) Object.assign(state.settings, obj.settings);
-    save(); closeIO(); doRefresh();
-    toast('导入成功，共 '+state.positions.length+' 项持仓');
-  }catch(e){ toast('导入失败：'+e.message, true); }
+    try {
+      _applyImport(res.obj);
+    } catch(e){
+      _ioStat('导入失败：' + e.message, true);
+      toast(e.message, true);
+    }
+  };
+  reader.onerror = () => { _ioStat('读取文件失败', true); toast('读取文件失败', true); };
+  reader.readAsText(file, 'utf-8');
 }
 
 /* ---------- 9b. 导出整页为图片 ---------- */
@@ -3838,6 +3932,12 @@ document.getElementById('btnIO').addEventListener('click', openIO);
 document.getElementById('btnIOClose').addEventListener('click', closeIO);
 document.getElementById('btnExport').addEventListener('click', exportData);
 document.getElementById('btnImport').addEventListener('click', importData);
+document.getElementById('btnExportFile').addEventListener('click', exportDataFile);
+document.getElementById('ioFileInput').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if(f) importFromFile(f);
+  e.target.value = ''; // 允许重复选同一个文件
+});
 document.getElementById('btnExportImg').addEventListener('click', exportAsImage);
 document.getElementById('btnClearTheme').addEventListener('click', e => {
   e.stopPropagation();
