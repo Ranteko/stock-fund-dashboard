@@ -474,7 +474,7 @@
 <div class="modal-bg" id="capitalModal">
   <div class="modal" style="min-width:460px;max-width:600px">
     <h2>资金 & 投资以来总盈亏</h2>
-    <p style="color:var(--muted);font-size:12px;margin:-6px 0 14px">为每个平台填入账户总本金（含现金 + 持仓）。汇总将合并为全平台总资金，并展示<b>仓位度</b>与<b>现金余额</b>。留空或填 0 = 该平台不启用，相关比例显示为 --。<br>💡 <b>投资以来总盈亏</b>：填"从投资开始到现在的总盈亏"（<b>含当前持仓浮盈</b>）。保存后系统会以此为基线，随行情动态更新展示值。</p>
+    <p style="color:var(--muted);font-size:12px;margin:-6px 0 14px">填入保存这一刻的账户总资金（<b>可用现金 + 当前持仓市值</b>）。系统会自动记住当时的可用现金；以后行情变化时，总资金会按“已记住的现金 + 最新持仓市值”动态更新。留空或填 0 = 该平台不启用，相关比例显示为 --。<br>💡 <b>投资以来总盈亏</b>：填"从投资开始到现在的总盈亏"（<b>含当前持仓浮盈</b>）。保存后系统会以此为基线，随行情动态更新展示值。</p>
     <!-- 合计（不区分平台）—— 用于用户不想按平台维护的场景 -->
     <div style="background:linear-gradient(135deg,#7c2d1233 0%,#1e3a8a22 100%);border:1px solid #92400e66;border-radius:8px;padding:10px 12px;margin-bottom:14px">
       <div style="font-size:12px;color:#fdba74;font-weight:600;margin-bottom:8px">📊 合计（不区分平台）<span style="font-weight:400;color:var(--muted);font-size:10px;margin-left:6px">如果按平台维护过就用平台合计，否则以这里为准</span></div>
@@ -737,8 +737,10 @@ function load(){
     obj.fundLimits ||= {};   // { [code]: { dailyLimit, updatedAt, history: [{value, ts}] } }
     obj.settings ||= {autoRefreshSec:30, capitals:{}, columnOrder:{}, maskMoney:false};
     if(!obj.settings.capitals || typeof obj.settings.capitals !== 'object') obj.settings.capitals = {};
+    if(!obj.settings.capitalCash || typeof obj.settings.capitalCash !== 'object') obj.settings.capitalCash = {};
     if(!obj.settings.priorPnl || typeof obj.settings.priorPnl !== 'object') obj.settings.priorPnl = {};
     if(obj.settings.overallCapital == null) obj.settings.overallCapital = null;
+    if(obj.settings.overallCapitalCash == null) obj.settings.overallCapitalCash = null;
     if(obj.settings.overallPriorPnl == null) obj.settings.overallPriorPnl = null;
     if(!obj.settings.columnOrder || typeof obj.settings.columnOrder !== 'object') obj.settings.columnOrder = {};
     if(typeof obj.settings.maskMoney !== 'boolean') obj.settings.maskMoney = false;
@@ -2157,7 +2159,7 @@ function renderSummary(positions){
 
   // 全部持仓 col 的"总资金"：如果配了 overallCapital 优先用它（用户明确填了合计），
   // 否则 fallback 到各平台资金合计（totalCapital 由 doRefresh 计算）
-  const overallCapVal = state.settings.overallCapital;
+  const overallCapVal = ctx.overallCapital;
   const globalTotalCapital = (overallCapVal != null && overallCapVal > 0) ? overallCapVal : totalCapital;
   const cols = [
     { key:'all',   title:'全部持仓', icon:'💼', rows: all,    capital: globalTotalCapital,   capLabel:'总资金' },
@@ -2885,9 +2887,32 @@ function render(rowsByPos){
   const _totalAgg = aggregate(allPositions);
   const totalMv = _totalAgg.mv || 0;
   const totalPnl = _totalAgg.pnl || 0;
-  // 平台资金 -> 总资金
-  const capitals = state.settings.capitals || {};
+  // 平台资金采用动态口径：保存时锁定现金余额，之后随最新持仓市值变化
+  const savedCapitals = state.settings.capitals || {};
+  const savedCash = state.settings.capitalCash || {};
+  const platformMv = {};
+  const platformMvIncomplete = {};
+  for(const r of allPositions){
+    const pl = r.platform || '未分类';
+    if(r.error || r.mv == null || isNaN(r.mv)){
+      platformMvIncomplete[pl] = true;
+      continue;
+    }
+    platformMv[pl] = (platformMv[pl] || 0) + r.mv;
+  }
+  const capitals = {};
+  for(const [pl, savedTotal] of Object.entries(savedCapitals)){
+    const cash = parseFloat(savedCash[pl]);
+    capitals[pl] = isFinite(cash)
+      ? cash + (platformMv[pl] || 0)
+      : (parseFloat(savedTotal) || 0); // 旧数据：再次保存资金设置后切换到动态口径
+  }
   const totalCapital = Object.values(capitals).reduce((a,b)=>a+(parseFloat(b)||0), 0);
+  const overallSaved = parseFloat(state.settings.overallCapital);
+  const overallCash = parseFloat(state.settings.overallCapitalCash);
+  const overallCapital = isFinite(overallCash)
+    ? overallCash + totalMv
+    : (isFinite(overallSaved) ? overallSaved : null);
   const mvDenom = totalCapital > 0 ? totalCapital : totalMv;
   // 注入每行的 mvShare / pnlShare —— mvShare 用各平台自己的资金作分母（如有），否则全局
   for(const r of allPositions){
@@ -2898,7 +2923,7 @@ function render(rowsByPos){
     r.pnlShare = totalPnl !== 0 ? (r.pnl / totalPnl) : null;
   }
   window._totalAgg = _totalAgg;
-  window._capitalCtx = { capitals, totalCapital, mvDenom, totalMv, totalPnl };
+  window._capitalCtx = { capitals, totalCapital, overallCapital, mvDenom, totalMv, totalPnl, platformMv, platformMvIncomplete };
 
   // empty state
   document.getElementById('emptyState').style.display = allPositions.length ? 'none' : 'block';
@@ -4656,8 +4681,11 @@ function renderDiagnosis(){
   const ok = rows.filter(r => !r.error);
   const agg = aggregate(rows);
   const totalMv = agg.mv || 0;
-  const capitals = state.settings.capitals || {};
-  const totalCapital = Object.values(capitals).reduce((s,v)=>s+(parseFloat(v)||0),0);
+  const capitalCtx = window._capitalCtx || {};
+  const capitals = capitalCtx.capitals || state.settings.capitals || {};
+  const totalCapital = capitalCtx.totalCapital != null
+    ? capitalCtx.totalCapital
+    : Object.values(capitals).reduce((s,v)=>s+(parseFloat(v)||0),0);
   const items = [];
   const dataItems = [];
   const watchItems = [];
@@ -7123,9 +7151,13 @@ function openCapitalModal(){
   const all = [...new Set([...fromPos, ...fromSet, ...fromPrior])];
   if(all.length === 0) all.push('未分类');
   const wrap = document.getElementById('capitalRows');
-  wrap.innerHTML = all.map(platform => capitalRowHTML(platform, state.settings.capitals[platform])).join('');
+  const capitalCtx = window._capitalCtx || {};
+  const liveCapitals = capitalCtx.capitals || state.settings.capitals || {};
+  wrap.innerHTML = all.map(platform => capitalRowHTML(platform, liveCapitals[platform])).join('');
   // 回填合计（不区分平台）
-  const overallCap = state.settings.overallCapital;
+  const overallCap = capitalCtx.overallCapital != null
+    ? capitalCtx.overallCapital
+    : state.settings.overallCapital;
   const overallPrior = state.settings.overallPriorPnl || {};
   document.getElementById('capOverallCap').value = (overallCap != null && overallCap !== 0) ? overallCap : '';
   document.getElementById('capOverallPrior').value = (overallPrior.amount != null && overallPrior.amount !== 0) ? overallPrior.amount : '';
@@ -7170,7 +7202,11 @@ function bindCapitalRowDelete(){
 }
 function saveCapital(){
   const caps = {};
+  const cashBaselines = {};
   const priors = {};
+  const capitalCtx = window._capitalCtx || {};
+  const platformMv = capitalCtx.platformMv || {};
+  const platformMvIncomplete = capitalCtx.platformMvIncomplete || {};
   const rows = Array.from(document.querySelectorAll('#capitalRows .cap-row'));
   const priorRows = Array.from(document.querySelectorAll('#capitalRows .cap-prior'));
   let hasInvalid = false;
@@ -7180,7 +7216,17 @@ function saveCapital(){
     const v = rawV ? evalExpr(rawV) : null;
     if(rawV && v == null){ hasInvalid = true; row.querySelector('.cap-value').style.borderColor = 'var(--down)'; }
     if(!name) return;
-    if(v != null && v > 0) caps[name] = v;
+    if(v != null && v > 0){
+      if(platformMvIncomplete[name]){
+        hasInvalid = true;
+        row.querySelector('.cap-value').style.borderColor = 'var(--down)';
+        row.querySelector('.cap-value').title = '该平台有持仓行情尚未获取，暂时无法准确计算现金余额';
+      } else {
+        caps[name] = v;
+        // 用户填写的是保存时总资金；减去保存时市值，得到以后保持不变的现金基线
+        cashBaselines[name] = v - (parseFloat(platformMv[name]) || 0);
+      }
+    }
     // 用同索引对应的 prior 行（HTML 顺序：cap-row idx N ↔ cap-prior idx N）
     const priorRow = priorRows[idx];
     if(priorRow){
@@ -7204,7 +7250,7 @@ function saveCapital(){
       }
     }
   });
-  if(hasInvalid){ toast('有输入格式不合法（表达式无效），请检查红色框', true); return; }
+  if(hasInvalid){ toast('有输入无效，或持仓行情尚未获取，请检查红色框', true); return; }
   // 合计（不区分平台）—— 独立于按平台维护，两者可共存
   const overallCapEl = document.getElementById('capOverallCap');
   const overallPriorEl = document.getElementById('capOverallPrior');
@@ -7221,7 +7267,15 @@ function saveCapital(){
     toast('投资以来总盈亏格式不合法', true); return;
   }
   const overallSince = document.getElementById('capOverallSince').value || '';
+  if(overallCap != null && overallCap > 0 && Object.keys(platformMvIncomplete).length){
+    overallCapEl.style.borderColor = 'var(--down)';
+    overallCapEl.title = '有持仓行情尚未获取，暂时无法准确计算全部现金余额';
+    toast('有持仓行情尚未获取，暂时无法保存动态总资金', true); return;
+  }
   state.settings.overallCapital = (overallCap != null && overallCap > 0) ? overallCap : null;
+  state.settings.overallCapitalCash = (overallCap != null && overallCap > 0)
+    ? overallCap - (parseFloat(capitalCtx.totalMv) || 0)
+    : null;
   if(overallPrior != null && overallPrior !== 0){
     const baseline = computeCurrentPnlByPlatform('__all__');
     const prev = state.settings.overallPriorPnl;
@@ -7236,6 +7290,7 @@ function saveCapital(){
     state.settings.overallPriorPnl = null;
   }
   state.settings.capitals = caps;
+  state.settings.capitalCash = cashBaselines;
   state.settings.priorPnl = priors;
   save();
   document.getElementById('capitalModal').classList.remove('open');
