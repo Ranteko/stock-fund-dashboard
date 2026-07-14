@@ -4,3 +4,4 @@ node_modules/
 # 不要把 localStorage 备份提交进 git（含敏感持仓数据）
 *.localstorage.json
 my_positions.json
+data/*.json

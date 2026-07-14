@@ -71,11 +71,15 @@
   .card.platform-card.collapsed .chart-block, .card.platform-card.collapsed .table-wrap{display:none}
   .card.platform-card .chart-block{margin:10px 18px 0}
   .card.platform-card .table-wrap{padding:0;margin:0}
+  .card.platform-card:not(.collapsed) .table-wrap{max-height:min(68vh,720px);overflow:auto;position:relative;scrollbar-width:none;-ms-overflow-style:none}
+  .card.platform-card:not(.collapsed) .table-wrap::-webkit-scrollbar{width:0;height:0;display:none}
   .card.platform-card .table-wrap table{min-width:100%}
   .card.platform-card thead th:first-child{padding-left:20px}
   .card.platform-card tbody td:first-child{padding-left:20px}
   .card.platform-card thead th:last-child{padding-right:20px}
   .card.platform-card tbody td:last-child{padding-right:20px}
+  .card.platform-card thead th{position:sticky;top:0;z-index:6;box-shadow:0 1px 0 var(--line)}
+  .card.platform-card thead th::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--line)}
   /* 名称列约束 */
   tbody td .name{max-width:200px}
   thead th{overflow:hidden}
@@ -245,6 +249,26 @@
   .modal .row label{color:var(--muted);font-size:13px}
   .modal .row input,.modal .row select{width:100%}
   .modal .footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+  .diag-modal{width:min(980px,95vw);max-height:90vh;display:flex;flex-direction:column}
+  .diag-body{overflow:auto;padding-right:4px;scrollbar-width:none;-ms-overflow-style:none}
+  .diag-body::-webkit-scrollbar{width:0;height:0;display:none}
+  .diag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0 14px}
+  .diag-card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .diag-card .k{color:var(--muted);font-size:11px;margin-bottom:4px}
+  .diag-card .v{font-size:18px;font-weight:700}
+  .diag-section{border-top:1px dashed var(--line);padding-top:12px;margin-top:12px}
+  .diag-section h3{font-size:13px;margin:0 0 8px}
+  .diag-list{display:grid;gap:8px}
+  .diag-item{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:8px;padding:9px 11px;font-size:12px;line-height:1.55}
+  .diag-item.warn{border-left-color:#f59e0b}
+  .diag-item.bad{border-left-color:#ef4444}
+  .diag-item.good{border-left-color:#22c55e}
+  .diag-bar{height:8px;background:var(--panel3);border-radius:99px;overflow:hidden;margin-top:6px}
+  .diag-bar span{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#22c55e);border-radius:99px}
+  .diag-table{width:100%;border-collapse:collapse;font-size:12px}
+  .diag-table th,.diag-table td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  .diag-table th:first-child,.diag-table td:first-child{text-align:left}
+  .diag-table th{color:var(--muted);font-weight:500;background:var(--panel2);position:sticky;top:0}
   .hint{color:var(--muted);font-size:11px;margin-top:-4px;grid-column:2}
   .toast{position:fixed;top:14px;right:14px;background:var(--panel);border:1px solid var(--line);padding:10px 14px;border-radius:8px;display:none;z-index:200}
   .toast.show{display:block;animation:fade .3s}
@@ -278,9 +302,13 @@
     <button id="btnMore" class="ghost more-menu-btn" aria-haspopup="true" aria-expanded="false">更多 ▾</button>
     <div class="more-menu" id="moreMenu" role="menu" aria-hidden="true">
       <button id="btnBatch" role="menuitem">批量编辑</button>
+      <button id="btnDiag" role="menuitem" title="基于当前持仓、盈亏、仓位和行情状态做本地诊断">🩺 持仓诊断</button>
+      <button id="btnYjb" role="menuitem" title="扫码登录养基宝，用养基宝估值覆盖看板基金估值">🔄 养基宝同步</button>
       <button id="btnFundLimits" role="menuitem" title="维护基金限购信息，定投会自动按限额扣减">🚦 基金限购</button>
       <button id="btnFoldAll" role="menuitem" title="一键折叠/展开所有平台分组">📦 折叠全部</button>
-      <button id="btnExportImg" role="menuitem" title="将整个看板导出为 PNG 图片">📷 导出图片</button>
+      <button id="btnExportImg" role="menuitem" title="导出全部持仓明细为 PNG 长图">📷 导出持仓图片</button>
+      <button id="btnExportTable" role="menuitem" title="导出当前全部持仓明细为 Excel/WPS 可打开的表格">📊 导出明细表格</button>
+      <button id="btnExportXlsx" role="menuitem" title="导出当前全部持仓明细为标准 XLSX 文件">📗 导出 XLSX</button>
       <button id="btnIO" role="menuitem">↕ 导入/导出</button>
     </div>
   </div>
@@ -311,8 +339,8 @@
       <div id="themeGrid"></div>
     </div>
     <div style="color:var(--muted);font-size:11px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
-      📡 数据源：A 股/ETF 走腾讯财经实时行情；场外公募基金走天天基金"估算净值"（盘中估算，<b>非真实净值</b>，21 点后真实净值发布时会自动切换为<span style="color:#86efac">真实</span>口径）。
-      <br>💡 想用<b>养基宝/支付宝</b>口径？编辑该基金 → 在"手动估值"里填入你看到的当日预估价 → 看板会用此值替代天天基金估算（标记为<span style="color:#93c5fd">手动</span>），<b>不影响实时刷新</b>，下次重新覆盖即可。
+      📡 数据源：A 股/ETF 走腾讯财经实时行情；场外公募基金默认走天天基金"估算净值"（盘中估算，<b>非真实净值</b>，21 点后真实净值发布时会自动切换为<span style="color:#86efac">真实</span>口径）。
+      <br>💡 想用<b>养基宝</b>口径？点右上角"更多 → 养基宝同步"扫码授权，系统会按基金代码把养基宝估值写入"手动估值"覆盖项；也可以编辑单只基金手动填写。
     </div>
   </div>
 
@@ -380,6 +408,41 @@
       <button id="btnDelete" class="danger" style="margin-right:auto;display:none">删除</button>
       <button id="btnCancel">取消</button>
       <button id="btnSave" class="primary">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Yangjibao modal -->
+<div class="modal-bg" id="yjbModal">
+  <div class="modal" style="min-width:460px;max-width:640px">
+    <h2>养基宝同步</h2>
+    <p style="color:var(--muted);font-size:12px;margin:-6px 0 12px;line-height:1.7">
+      扫码登录后，只会读取养基宝账户里的基金代码与估值字段，用于覆盖本看板的基金估值；不会修改份额、成本和交易流水。授权信息仅保存在当前浏览器 localStorage。
+    </p>
+    <div id="yjbUser" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
+    <div id="yjbQrBox" style="display:none;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px;text-align:center;margin-bottom:10px">
+      <img id="yjbQrImg" alt="养基宝微信登录二维码" style="width:188px;height:188px;background:#fff;border-radius:6px;padding:10px">
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">用微信扫码确认登录</div>
+      <div id="yjbQrLink" style="display:block;color:var(--muted);word-break:break-all;font-size:10px;line-height:1.5;margin-top:6px"></div>
+    </div>
+    <div id="yjbStat" style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:10px 12px;color:var(--muted);font-size:12px;line-height:1.7;min-height:42px"></div>
+    <div class="footer">
+      <button id="btnYjbLogout" class="danger" style="margin-right:auto">清除授权</button>
+      <button id="btnYjbLogin">扫码登录</button>
+      <button id="btnYjbSync" class="primary">立即同步</button>
+      <button id="btnYjbClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Portfolio diagnosis modal -->
+<div class="modal-bg" id="diagModal">
+  <div class="modal diag-modal">
+    <h2>持仓诊断</h2>
+    <div id="diagHost" class="diag-body"></div>
+    <div class="footer">
+      <button id="btnDiagRefresh">重新诊断</button>
+      <button id="btnDiagClose" class="primary">关闭</button>
     </div>
   </div>
 </div>
@@ -667,7 +730,7 @@ const STORAGE_KEY = 'portfolio_v1';
 function load(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return {positions:[], dcaPlans:[], settings:{autoRefreshSec:30, capitals:{}, columnOrder:{}, maskMoney:false}};
+    if(!raw) return {positions:[], dcaPlans:[], settings:{autoRefreshSec:30, capitals:{}, columnOrder:{}, maskMoney:false, yjb:{}}};
     const obj = JSON.parse(raw);
     obj.positions ||= [];
     obj.dcaPlans ||= [];
@@ -679,6 +742,7 @@ function load(){
     if(obj.settings.overallPriorPnl == null) obj.settings.overallPriorPnl = null;
     if(!obj.settings.columnOrder || typeof obj.settings.columnOrder !== 'object') obj.settings.columnOrder = {};
     if(typeof obj.settings.maskMoney !== 'boolean') obj.settings.maskMoney = false;
+    if(!obj.settings.yjb || typeof obj.settings.yjb !== 'object') obj.settings.yjb = {};
     if(typeof obj.settings.totalCapital === 'number' && obj.settings.totalCapital > 0){
       delete obj.settings.totalCapital;
     }
@@ -687,10 +751,59 @@ function load(){
       if(!p.createdAt) p.createdAt = p.updatedAt || 0;
     }
     return obj;
-  }catch(e){ return {positions:[], settings:{autoRefreshSec:30, capitals:{}, columnOrder:{}, maskMoney:false}}; }
+  }catch(e){ return {positions:[], settings:{autoRefreshSec:30, capitals:{}, columnOrder:{}, maskMoney:false, yjb:{}}}; }
 }
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function save(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  pushDesktopState();
+}
 const state = load();
+
+function desktopApi(path){
+  if(location.protocol === 'http:' || location.protocol === 'https:') return path;
+  return 'http://127.0.0.1:18788' + path;
+}
+function pushDesktopState(){
+  if(!window.fetch) return;
+  try{
+    fetch(desktopApi('/api/state'), {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(state),
+      cache:'no-store',
+      keepalive:true,
+    }).catch(()=>{});
+  }catch{}
+}
+async function pullDesktopTracking(){
+  if(!window.fetch) return false;
+  try{
+    const res = await fetch(desktopApi('/api/desktop/live'), {cache:'no-store'});
+    if(!res.ok) return false;
+    const data = await res.json();
+    if(!data || !data.tracking || !data.tracking.intraday) return false;
+    let changed = false;
+    for(const d in data.tracking.intraday){
+      const incoming = data.tracking.intraday[d];
+      if(!incoming || !Array.isArray(incoming.points)) continue;
+      tracking.intraday[d] ||= {points:[]};
+      const arr = tracking.intraday[d].points;
+      const seen = new Set(arr.map(p => p.ts));
+      for(const p of incoming.points){
+        if(!p || !p.ts || seen.has(p.ts)) continue;
+        arr.push(p);
+        seen.add(p.ts);
+        changed = true;
+      }
+      arr.sort((a,b) => a.ts - b.ts);
+    }
+    if(changed) saveTracking();
+    return changed;
+  }catch{
+    return false;
+  }
+}
+pushDesktopState();
 
 /* ---------- 收益跟踪 (盘中曲线 + 历史 EOD) ---------- */
 const TRACK_KEY = 'portfolio_track_v1';
@@ -792,7 +905,7 @@ function getIntradayPoints(scope){
 function renderChartSVG(points, opts={}){
   const W = opts.width || 560;
   const H = opts.height || 160;
-  const PADL = 56, PADR = 48, PADT = 30, PADB = 22;
+  const PADL = 56, PADR = 48, PADT = 30, PADB = 36;
   if(!points.length){
     return `<div style="color:var(--muted);text-align:center;padding:20px;font-size:12px">暂无今日数据，刷新后会逐步累积</div>`;
   }
@@ -942,14 +1055,16 @@ function renderChartSVG(points, opts={}){
       return `<polygon points="${px.toFixed(1)},${(py - 9).toFixed(1)} ${(px - 4).toFixed(1)},${(py - 3).toFixed(1)} ${(px + 4).toFixed(1)},${(py - 3).toFixed(1)}" fill="${peakMoneyColor}" opacity="0.95"/>
       <text x="${(px + dx).toFixed(1)}" y="${Math.max(PADT - 2, py - 12).toFixed(1)}" text-anchor="${anchor}" font-size="10" fill="${peakMoneyColor}" font-family="ui-monospace,Menlo" font-weight="700">▲ ${fmtMoneyHeader(peakMoneyP.dayPnl)} <tspan fill="var(--muted)" font-weight="500">@${fmtT(peakMoneyP.ts)}</tspan></text>`;
     })() : ''}
-    <!-- 谷值标记：向下三角 + 金额 + 时间 -->
+    <!-- 谷值标记：向下指示，并将数据放在曲线区下方，避免与峰值重合 -->
     ${troughMoneyP ? (() => {
       const px = x(troughMoneyP.ts);
       const py = yLeft(troughMoneyP.dayPnl);
       const anchor = px < PADL + 60 ? 'start' : (px > W - PADR - 60 ? 'end' : 'middle');
       const dx = anchor === 'start' ? 8 : (anchor === 'end' ? -8 : 0);
-      return `<polygon points="${px.toFixed(1)},${(py + 9).toFixed(1)} ${(px - 4).toFixed(1)},${(py + 3).toFixed(1)} ${(px + 4).toFixed(1)},${(py + 3).toFixed(1)}" fill="${troughMoneyColor}" opacity="0.95"/>
-      <text x="${(px + dx).toFixed(1)}" y="${Math.min(H - PADB + 12, py + 19).toFixed(1)}" text-anchor="${anchor}" font-size="10" fill="${troughMoneyColor}" font-family="ui-monospace,Menlo" font-weight="700">▼ ${fmtMoneyHeader(troughMoneyP.dayPnl)} <tspan fill="var(--muted)" font-weight="500">@${fmtT(troughMoneyP.ts)}</tspan></text>`;
+      const labelY = H - 18;
+      return `<line x1="${px.toFixed(1)}" y1="${(py + 6).toFixed(1)}" x2="${px.toFixed(1)}" y2="${(labelY - 9).toFixed(1)}" stroke="${troughMoneyColor}" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.55"/>
+      <polygon points="${px.toFixed(1)},${(py + 9).toFixed(1)} ${(px - 4).toFixed(1)},${(py + 3).toFixed(1)} ${(px + 4).toFixed(1)},${(py + 3).toFixed(1)}" fill="${troughMoneyColor}" opacity="0.95"/>
+      <text x="${(px + dx).toFixed(1)}" y="${labelY}" text-anchor="${anchor}" font-size="10" fill="${troughMoneyColor}" font-family="ui-monospace,Menlo" font-weight="700">▼ ${fmtMoneyHeader(troughMoneyP.dayPnl)} <tspan fill="var(--muted)" font-weight="500">@${fmtT(troughMoneyP.ts)}</tspan></text>`;
     })() : ''}
     <!-- hover overlay -->
     <line class="hover-line" x1="0" y1="${PADT}" x2="0" y2="${H - PADB}" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 2" style="display:none;pointer-events:none"/>
@@ -1306,8 +1421,26 @@ async function fetchFundQuotes(codes){
       enriched = await fetchTrueLatestNav(c).catch(()=>null); // pingzhongdata 兜底
     }
     if(!enriched) return;
-    const [, q] = entries.find(e => e[0] === c) || [];
-    if(!q) return;
+    const idx = entries.findIndex(e => e[0] === c);
+    let q = idx >= 0 ? entries[idx][1] : null;
+    if(!q){
+      const fallbackQ = {
+        name: '',
+        price: enriched.nav,
+        prevClose: enriched.prevNav,
+        changePct: enriched.pct / 100,
+        ts: enriched.date,
+        jzrq: enriched.date,
+        gztime: null,
+        estimated: false,
+        staleEstimate: false,
+        source: enriched.date === today ? 'real' : 'closed',
+        type: 'fund',
+      };
+      if(idx >= 0) entries[idx][1] = fallbackQ;
+      else entries.push([c, fallbackQ]);
+      return;
+    }
     // ① 完全锁定：F10 的净值日期 === 今天 → 真实净值已发布，整体覆盖为 real
     // ② 部分锁定：F10 比 fundgz 新但 < 今天（典型 QDII 场景：F10 给昨日真实，今日预估还没出）
     //    → 仅修正基线（prevClose/jzrq），保留 fundgz 的 gsz 作为今日估算价；source 仍 estimate
@@ -1331,7 +1464,8 @@ async function fetchFundQuotes(codes){
       q.jzrq = enriched.date;
       q.ts = enriched.date;
       q.estimated = false;
-      q.source = 'real';
+      q.staleEstimate = false;
+      q.source = isFromToday ? 'real' : 'closed';
     } else if(isNewerThanFundgz){
       // F10 比 fundgz 新但仍非今日（QDII T+1 经典场景）：只修正昨日基线，保留 fundgz 估算价
       q.prevClose = enriched.nav;
@@ -1344,6 +1478,244 @@ async function fetchFundQuotes(codes){
     }
   }));
   return Object.fromEntries(entries);
+}
+
+/* 4c. 养基宝插件接口 —— 扫码登录后同步公募基金估值覆盖
+ * 浏览器会拦截 file:// 页面直连养基宝接口；这里走本机代理 yjb-proxy.cjs。
+ */
+const YJB_PROXY_ORIGIN = location.protocol === 'http:' || location.protocol === 'https:'
+  ? ''
+  : 'http://127.0.0.1:18788';
+const YJB_PROXY_URL = YJB_PROXY_ORIGIN + '/api/yjb';
+let _yjbPollTimer = null;
+
+function yjbSettings(){
+  state.settings.yjb ||= {};
+  return state.settings.yjb;
+}
+function yjbToken(){
+  return yjbSettings().token || '';
+}
+async function yjbGet(path, token = yjbToken()){
+  const res = await fetch(YJB_PROXY_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({path, token}),
+    cache:'no-store',
+  });
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch { throw new Error('养基宝返回格式异常：' + text.slice(0, 80)); }
+  if(!res.ok || (json.code != null && json.code !== 200)){
+    throw new Error(json.message || ('养基宝请求失败 HTTP ' + res.status));
+  }
+  return json.data;
+}
+function yjbSetStatus(msg, isErr=false){
+  const el = document.getElementById('yjbStat');
+  if(!el) return;
+  el.style.color = isErr ? '#fca5a5' : 'var(--muted)';
+  el.innerHTML = msg;
+}
+function yjbSyncUserUI(){
+  const s = yjbSettings();
+  const user = document.getElementById('yjbUser');
+  if(!user) return;
+  if(s.token){
+    const who = [s.nickname, s.phone].filter(Boolean).join(' · ');
+    user.innerHTML = `当前状态：<span style="color:#86efac">已授权</span>${who ? ' · ' + who : ''}${s.lastSyncAt ? ' · 上次同步 ' + new Date(s.lastSyncAt).toLocaleString('zh-CN',{hour12:false}) : ''}`;
+  } else {
+    user.innerHTML = '当前状态：<span style="color:#fbbf24">未授权</span>';
+  }
+  document.getElementById('btnYjbSync').disabled = !s.token;
+}
+function openYjb(){
+  document.getElementById('yjbModal').classList.add('open');
+  document.getElementById('yjbQrBox').style.display = 'none';
+  yjbSyncUserUI();
+  yjbSetStatus(yjbToken() ? '已登录。养基宝估值会随整体刷新自动同步，也可以点击“同步估值”立即刷新一次。' : '请先扫码登录养基宝。登录成功后会自动同步一次，之后跟随整体刷新频率更新。');
+}
+function closeYjb(){
+  if(_yjbPollTimer){ clearInterval(_yjbPollTimer); _yjbPollTimer = null; }
+  document.getElementById('yjbModal').classList.remove('open');
+}
+async function startYjbLogin(){
+  if(_yjbPollTimer){ clearInterval(_yjbPollTimer); _yjbPollTimer = null; }
+  yjbSetStatus('正在获取登录二维码…');
+  try{
+    const data = await yjbGet('/qr_code', '');
+    if(!data || !data.url || !data.id) throw new Error('没有拿到二维码');
+    const box = document.getElementById('yjbQrBox');
+    const img = document.getElementById('yjbQrImg');
+    const link = document.getElementById('yjbQrLink');
+    img.src = YJB_PROXY_ORIGIN + '/api/qr?data=' + encodeURIComponent(data.url);
+    link.textContent = data.url;
+    box.style.display = 'block';
+    yjbSetStatus('二维码已生成，等待微信扫码确认…');
+    _yjbPollTimer = setInterval(async () => {
+      try{
+        const st = await yjbGet('/qr_code_state/' + encodeURIComponent(data.id), '');
+        const token = st && (st.token || st.access_token || (st.user && st.user.token));
+        if(!token) return;
+        clearInterval(_yjbPollTimer); _yjbPollTimer = null;
+        const s = yjbSettings();
+        s.token = token;
+        s.nickname = st.nickname || st.nick_name || (st.user && (st.user.nickname || st.user.nick_name)) || '';
+        s.avatar = st.avatar || (st.user && st.user.avatar) || '';
+        s.loginAt = Date.now();
+        save();
+        box.style.display = 'none';
+        yjbSyncUserUI();
+        yjbSetStatus('登录成功，正在同步养基宝估值…');
+        syncYjbEstimates();
+      }catch(e){
+        // 未扫码/未确认时接口可能返回业务态错误，继续轮询即可。
+      }
+    }, 2200);
+  }catch(e){
+    const msg = /Failed to fetch|NetworkError|Load failed/i.test(e.message)
+      ? '无法连接本机养基宝代理。请先运行 npm start，然后打开 http://127.0.0.1:18788/ 使用。'
+      : e.message;
+    yjbSetStatus('登录失败：' + msg, true);
+  }
+}
+function yjbFlatten(obj, prefix='', depth=0, out=[]){
+  if(obj == null || depth > 5) return out;
+  if(typeof obj !== 'object') return out;
+  for(const [k,v] of Object.entries(obj)){
+    const path = prefix ? prefix + '.' + k : k;
+    if(v && typeof v === 'object'){
+      yjbFlatten(v, path, depth + 1, out);
+    } else {
+      out.push([path, v]);
+    }
+  }
+  return out;
+}
+function yjbCodeOf(item){
+  const rows = yjbFlatten(item);
+  const preferred = rows.find(([k,v]) => /(^|\.)((fund_?)?code|fc|fcode)$/i.test(k) && /^\d{6}$/.test(String(v)));
+  if(preferred) return String(preferred[1]);
+  const any = rows.find(([,v]) => /^\d{6}$/.test(String(v)));
+  return any ? String(any[1]) : '';
+}
+function yjbExtractPrice(item){
+  const skip = /(amount|money|income|profit|pnl|rate|ratio|percent|pct|share|portion|cost|fee|hold|market|total|sum|asset|date|time|id)$/i;
+  const preferred = /(valuation|estimate|estimated|expect|realtime|real_time|gsz|gz|vv|nav|nv|net_?value|unit_?value|dwjz|price|value)$/i;
+  const rows = yjbFlatten(item);
+  const candidates = [];
+  for(const [path, val] of rows){
+    if(typeof val === 'boolean') continue;
+    const num = parseFloat(String(val).replace(/,/g,''));
+    if(!(num > 0.01 && num < 100)) continue;
+    const key = path.split('.').pop() || path;
+    const lower = path.toLowerCase();
+    let score = 0;
+    if(skip.test(key)) score -= 20;
+    if(preferred.test(lower)) score += 10;
+    if(/estimate|valuation|expect|gsz|gz|vv/.test(lower)) score += 8;
+    if(/nv_info|nav|net|unit|value|nv/.test(lower)) score += 4;
+    if(/pct|rate|ratio|percent|income|amount|share|cost|profit|hold/.test(lower)) score -= 20;
+    candidates.push({path, price:num, score});
+  }
+  candidates.sort((a,b) => b.score - a.score);
+  return candidates[0] && candidates[0].score > 0 ? candidates[0] : null;
+}
+function yjbCollectAccountIds(data){
+  const ids = new Set();
+  const rows = yjbFlatten(data);
+  for(const [path, val] of rows){
+    if(val == null) continue;
+    if(/(^|\.)account_?id$/i.test(path) || /(^|\.)id$/i.test(path)){
+      const s = String(val);
+      if(/^\d+$/.test(s)) ids.add(s);
+    }
+  }
+  return [...ids];
+}
+function yjbCollectArray(data){
+  if(Array.isArray(data)) return data;
+  if(!data || typeof data !== 'object') return [];
+  for(const key of ['list','data','items','fund_list','fundList','hold_list','holdList']){
+    if(Array.isArray(data[key])) return data[key];
+  }
+  return Object.values(data).find(Array.isArray) || [];
+}
+async function syncYjbEstimates(){
+  const stats = await refreshYjbEstimates({silent:false});
+  if(!stats) return;
+  await doRefresh({skipYjb:true});
+  yjbSetStatus(`同步完成：已更新 ${stats.matched} 只基金的盘中估算覆盖。若今日真实净值已发布，看板会自动优先显示“真实”。未在养基宝持仓中匹配 ${stats.noYjb} 只；匹配到但暂未识别估值字段 ${stats.noPrice} 只。`);
+  toast(`养基宝估算已同步 ${stats.matched} 只`);
+}
+let _yjbRefreshing = false;
+async function refreshYjbEstimates({silent=true} = {}){
+  const token = yjbToken();
+  if(!token){
+    if(!silent) yjbSetStatus('请先扫码登录养基宝。', true);
+    return null;
+  }
+  const fundPositions = state.positions.filter(p => p.type === 'fund' && /^\d{6}$/.test(p.code));
+  if(!fundPositions.length){
+    if(!silent) yjbSetStatus('当前看板没有可同步的公募基金。', true);
+    return null;
+  }
+  if(_yjbRefreshing) return null;
+  _yjbRefreshing = true;
+  if(!silent) yjbSetStatus('正在读取养基宝账户和基金持仓…');
+  try{
+    const accountData = await yjbGet('/user_account', token);
+    let accountIds = yjbCollectAccountIds(accountData);
+    if(!accountIds.length && accountData && accountData.id != null) accountIds = [String(accountData.id)];
+    if(!accountIds.length) throw new Error('未识别到账户 ID');
+    const rawFunds = [];
+    for(const accountId of accountIds){
+      const hold = await yjbGet('/fund_hold?account_id=' + encodeURIComponent(accountId), token);
+      for(const item of yjbCollectArray(hold)) rawFunds.push({accountId, item});
+    }
+    const byCode = new Map();
+    for(const row of rawFunds){
+      const code = yjbCodeOf(row.item);
+      const price = yjbExtractPrice(row.item);
+      if(code && price) byCode.set(code, {...price, accountId: row.accountId});
+    }
+    let matched = 0, noYjb = 0, noPrice = 0;
+    const now = Date.now();
+    for(const p of fundPositions){
+      const hit = byCode.get(p.code);
+      if(!hit){
+        const raw = rawFunds.find(row => yjbCodeOf(row.item) === p.code);
+        if(raw) noPrice++; else noYjb++;
+        continue;
+      }
+      p.overridePrice = Math.round(hit.price * 10000) / 10000;
+      p.yjbOverride = {price:p.overridePrice, syncedAt:now, accountId:hit.accountId, field:hit.path};
+      p.updatedAt = now;
+      matched++;
+    }
+    const s = yjbSettings();
+    s.lastSyncAt = now;
+    s.lastSyncResult = {matched, noYjb, noPrice};
+    delete s.lastError;
+    yjbSyncUserUI();
+    return {matched, noYjb, noPrice};
+  }catch(e){
+    const msg = /Failed to fetch|NetworkError|Load failed/i.test(e.message)
+      ? '无法连接本机养基宝代理。请先运行 npm start，然后打开 http://127.0.0.1:18788/ 使用。'
+      : e.message;
+    yjbSettings().lastError = msg;
+    if(!silent) yjbSetStatus('同步失败：' + msg, true);
+    return null;
+  }finally{
+    _yjbRefreshing = false;
+  }
+}
+function logoutYjb(){
+  const s = yjbSettings();
+  delete s.token; delete s.nickname; delete s.avatar; delete s.loginAt;
+  save();
+  yjbSyncUserUI();
+  yjbSetStatus('已清除本地授权。已同步到基金上的估值覆盖不会自动删除，如需删除可进入单只基金编辑清空“手动估值”。');
 }
 
 /* 4d. pingzhongdata - 真实历史净值（用于覆盖 fundgz 的滞后数据）*/
@@ -1587,7 +1959,11 @@ function fetchTrueLatestNavF10(code){
   if(cached && cached.cachedAt === today && cached.date === today){
     return Promise.resolve({ date: cached.date, nav: cached.nav, prevNav: cached.prevNav, pct: cached.pct });
   }
-  if(cached && cached.cachedAt === today && cached._fetchedAt && (Date.now() - cached._fetchedAt) < 15*60*1000){
+  const now = new Date();
+  const minute = now.getHours() * 60 + now.getMinutes();
+  const navPublishWindow = minute >= 15*60+30; // 收盘后基金净值开始陆续发布，旧日期缓存要更短
+  const staleTtl = navPublishWindow ? 60*1000 : 15*60*1000;
+  if(cached && cached.cachedAt === today && cached._fetchedAt && (Date.now() - cached._fetchedAt) < staleTtl){
     return Promise.resolve({ date: cached.date, nav: cached.nav, prevNav: cached.prevNav, pct: cached.pct });
   }
   return new Promise(resolve => {
@@ -1615,8 +1991,9 @@ function compute(p, q){
       dayPnl:null, dayPnlPct:null, error:true,
     };
   }
-  // 基金允许手动覆盖估值价（用于贴近养基宝/支付宝口径）
-  const useOverride = p.type === 'fund' && typeof p.overridePrice === 'number' && p.overridePrice > 0;
+  // 基金允许用养基宝/手动估值覆盖盘中估算或昨日最新净值；但今日真实净值发布后必须让真实净值优先。
+  const canUseEstimateOverride = p.type === 'fund' && q && q.source !== 'real';
+  const useOverride = canUseEstimateOverride && typeof p.overridePrice === 'number' && p.overridePrice > 0;
   const price = useOverride ? p.overridePrice : q.price;
   const cost = p.costPrice * p.shares;
   const mv = price * p.shares;
@@ -1679,7 +2056,13 @@ function compute(p, q){
       dayPnlPct = price / q.prevClose - 1;
     }
   }
-  return { ...p, q, useOverride, price, mv, cost, pnl, pnlPct, dayPnl, dayPnlPct, staleEstimate: !!(q && q.staleEstimate && !useOverride), error:false };
+  return {
+    ...p, q, useOverride,
+    overrideSource: useOverride && p.yjbOverride ? 'yangjibao' : (useOverride ? 'manual' : null),
+    price, mv, cost, pnl, pnlPct, dayPnl, dayPnlPct,
+    staleEstimate: !!(q && q.staleEstimate && !useOverride),
+    error:false
+  };
 }
 
 /* ---------- 6. 渲染 ---------- */
@@ -1921,11 +2304,13 @@ function rowHTML(r){
   if(r.type === 'fund'){
     const decimals = 4;
     if(r.useOverride){
-      priceCell = `${fmt.num(r.price, decimals)} <span class="badge" style="background:#1e40af33;color:#93c5fd;border-color:#1e40af66" title="使用你手动填写的估值（养基宝/支付宝口径）">手动</span>`;
+      const isYjb = r.overrideSource === 'yangjibao';
+      const title = isYjb ? '使用养基宝同步估值' : '使用你手动填写的估值（养基宝/支付宝口径）';
+      priceCell = `${fmt.num(r.price, decimals)} <span class="badge" style="background:#1e40af33;color:#93c5fd;border-color:#1e40af66" title="${title}">${isYjb ? '养基宝' : '手动'}</span>`;
     } else if(r.q.source === 'real'){
       priceCell = `${fmt.num(r.price, decimals)} <span class="badge" style="background:#14532d33;color:#86efac;border-color:#14532d66" title="今日真实净值（21:00 后由基金公司公布）">真实</span>`;
     } else if(r.q.source === 'closed'){
-      priceCell = `${fmt.num(r.price, decimals)} <span class="badge" title="盘外，仅显示最新单位净值">收盘</span>`;
+      priceCell = `${fmt.num(r.price, decimals)} <span class="badge" title="最新官方净值，可能不是今日净值">最新</span>`;
     } else if(r.staleEstimate){
       const gt = r.q.gztime || '';
       priceCell = `${fmt.num(r.price, decimals)} <span class="badge" style="background:#7c2d1244;color:#fdba74;border-color:#9a341266;cursor:help" title="天天基金估值时间为 ${gt}（QDII 多见），全天不更新且与养基宝/支付宝差距大。请在编辑里填【手动估值】贴合实际口径">⚠ 隔夜估</span>`;
@@ -2204,9 +2589,12 @@ const COLUMN_SPECS = {
                   // 现价部分
                   let priceCell = fmt.num(r.price, decimals);
                   if(r.type === 'fund'){
-                    if(r.useOverride){ priceCell += ' <span class="badge" style="background:#1e40af33;color:#93c5fd;border-color:#1e40af66" title="使用你手动填写的估值（养基宝/支付宝口径）">手动</span>'; }
+                    if(r.useOverride){
+                      const isYjb = r.overrideSource === 'yangjibao';
+                      priceCell += ` <span class="badge" style="background:#1e40af33;color:#93c5fd;border-color:#1e40af66" title="${isYjb ? '使用养基宝同步估值' : '使用你手动填写的估值（养基宝/支付宝口径）'}">${isYjb ? '养基宝' : '手动'}</span>`;
+                    }
                     else if(r.q.source === 'real'){ priceCell += ' <span class="badge" style="background:#14532d33;color:#86efac;border-color:#14532d66" title="今日真实净值（21:00 后由基金公司公布）">真实</span>'; }
-                    else if(r.q.source === 'closed'){ priceCell += ' <span class="badge" title="盘外，仅显示最新单位净值">收盘</span>'; }
+                    else if(r.q.source === 'closed'){ priceCell += ' <span class="badge" title="最新官方净值，可能不是今日净值">最新</span>'; }
                     else if(r.staleEstimate){ priceCell += ` <span class="badge" style="background:#7c2d1244;color:#fdba74;border-color:#9a341266;cursor:help" title="估值时间为 ${r.q.gztime || ''}（QDII 多见），全天不更新；建议手动覆盖">⚠ 隔夜估</span>`; }
                     else { priceCell += ' <span class="badge" title="天天基金估算净值，盘中非实时真值；可在编辑里手动覆盖为养基宝口径">估</span>'; }
                   }
@@ -2772,8 +3160,9 @@ function renderMultiSeriesSVG(seriesList, opts={}){
   // W 默认按容器测量值，无容器则取 720
   const W = opts.width || 720;
   const H = opts.height || 200;
-  const PADL = 56, PADR = 16, PADT = 52, PADB = 48;
   const valid = seriesList.filter(s => s.points && s.points.length);
+  // 为每条曲线的谷值预留一行底部标签，确保标签始终处于绘图区之外
+  const PADL = 56, PADR = 16, PADT = 52, PADB = Math.max(48, 24 + valid.length * 12);
   if(!valid.length){
     return `<div style="color:var(--muted);text-align:center;padding:24px 8px;font-size:12px">暂无数据，刷新后会逐步累积；或在上方筛选要查看的维度</div>`;
   }
@@ -2936,17 +3325,16 @@ function renderMultiSeriesSVG(seriesList, opts={}){
     <polygon points="${px.toFixed(1)},${(py - 9).toFixed(1)} ${(px - 4).toFixed(1)},${(py - 3).toFixed(1)} ${(px + 4).toFixed(1)},${(py - 3).toFixed(1)}" fill="${p.color}" opacity="0.95"/>
     <text x="${px.toFixed(1)}" y="${labelY}" text-anchor="${anchor}" font-size="10" fill="${p.color}" font-family="ui-monospace,Menlo" font-weight="700">${labelText}</text>`;
   }).join('');
-  // 谷值：三角 + 引导虚线 → 底部空白区标签（多条错开），位于时间轴上方
+  // 谷值：固定在曲线区下方，和顶部峰值标签分层，避免极值时间接近时重合
   const troughMarkers = paths.map((p, idx) => {
     if(!p.trough) return '';
     const px = x(p.trough.ts);
     const py = yLeft(p.trough.dayPnl);
-    // 底部标签放在 [H-PADB+2, H-PADB+2+idx*12]，紧贴曲线区下方，不与时间轴（H-6）冲突
-    const labelY = H - PADB + 12 + idx * 12;
+    const labelY = H - 18 - idx * 12;
     const labelText = `▼ ${fmtMoneyHdr(p.trough.dayPnl)}${p.trough.dayPnlPct != null ? ' (' + fmtPctHdr(p.trough.dayPnlPct) + ')' : ''} @${fmtT(p.trough.ts)}`;
     const estW = labelText.length * 6.2;
     const anchor = px + estW/2 > W - 4 ? 'end' : (px - estW/2 < PADL ? 'start' : 'middle');
-    return `<line x1="${px.toFixed(1)}" y1="${(py + 6).toFixed(1)}" x2="${px.toFixed(1)}" y2="${(labelY - 8).toFixed(1)}" stroke="${p.color}" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.55"/>
+    return `<line x1="${px.toFixed(1)}" y1="${(py + 6).toFixed(1)}" x2="${px.toFixed(1)}" y2="${(labelY - 9).toFixed(1)}" stroke="${p.color}" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.55"/>
     <polygon points="${px.toFixed(1)},${(py + 9).toFixed(1)} ${(px - 4).toFixed(1)},${(py + 3).toFixed(1)} ${(px + 4).toFixed(1)},${(py + 3).toFixed(1)}" fill="${p.color}" opacity="0.95"/>
     <text x="${px.toFixed(1)}" y="${labelY}" text-anchor="${anchor}" font-size="10" fill="${p.color}" font-family="ui-monospace,Menlo" font-weight="700">${labelText}</text>`;
   }).join('');
@@ -3372,7 +3760,7 @@ function bindChartHover(){
 
 /* ---------- 7. 主刷新流程 ---------- */
 let refreshing = false;
-async function doRefresh(){
+async function doRefresh(opts = {}){
   if(refreshing) return;
   // 历史模式下不刷新行情
   if(ui.viewDate) return;
@@ -3381,7 +3769,12 @@ async function doRefresh(){
   const btn = document.getElementById('btnRefresh');
   btn.disabled = true; btn.textContent = '刷新中…';
   try{
+    pushDesktopState();
+    await pullDesktopTracking();
     const {stocks, funds} = await refreshQuotes();
+    if(!opts.skipYjb){
+      await refreshYjbEstimates({silent:true});
+    }
     const rowsByPos = {};
     let latestTs = '';
     for(const p of state.positions){
@@ -3730,6 +4123,280 @@ function importFromFile(file){
   reader.readAsText(file, 'utf-8');
 }
 
+/* ---------- 9b. 导出持仓明细表格 ---------- */
+function excelEsc(v){
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function rawNum(v, digits = 2){
+  if(v == null || isNaN(v)) return '';
+  return Number(v).toFixed(digits);
+}
+function rawPct(v){
+  if(v == null || isNaN(v)) return '';
+  return (Number(v) * 100).toFixed(2) + '%';
+}
+function quoteSourceLabel(r){
+  if(!r || r.error) return '行情失败';
+  if(r.type !== 'fund') return '实时行情';
+  if(r.useOverride) return r.overrideSource === 'yangjibao' ? '养基宝估值' : '手动估值';
+  if(r.q && r.q.source === 'real') return '真实净值';
+  if(r.q && r.q.source === 'closed') return '最新净值';
+  if(r.staleEstimate) return '隔夜估值';
+  return '天天基金估值';
+}
+function buildHoldingsExportData(){
+  const rows = diagLiveRows();
+  const headers = ['平台','代码','名称','类型','题材','持仓份额','现价','成本价','市值','持仓占比','累计盈亏','累计盈亏率','收益占比','今日盈亏','今日盈亏率','估值口径','行情时间','待确认笔数','待确认金额','备注'];
+  const bodyRows = rows.map(r => {
+    const pending = (r.trades || []).filter(t => t.pending);
+    const pendingAmount = pending.reduce((s,t)=>s+(parseFloat(t.pendingAmount || t.amount)||0),0);
+    return [
+      r.platform || '未分类',
+      r.code || '',
+      r.name || (r.q && r.q.name) || '',
+      r.type === 'stock' ? (isETF(r) ? 'ETF/LOF' : 'A股') : '基金',
+      (r.themes || []).join(' / '),
+      rawNum(r.shares, 4),
+      rawNum(r.price, 4),
+      rawNum(r.costPrice, 4),
+      rawNum(r.mv, 2),
+      rawPct(r.mvShare),
+      rawNum(r.pnl, 2),
+      rawPct(r.pnlPct),
+      rawPct(r.pnlShare),
+      rawNum(r.dayPnl, 2),
+      rawPct(r.dayPnlPct),
+      quoteSourceLabel(r),
+      (r.q && (r.q.ts || r.q.gztime || r.q.jzrq)) || '',
+      pending.length ? String(pending.length) : '',
+      pending.length ? rawNum(pendingAmount, 2) : '',
+      r.note || '',
+    ];
+  });
+  const agg = aggregate(rows);
+  bodyRows.push([
+    '小计','','','', '', '', '', '', rawNum(agg.mv,2), '', rawNum(agg.pnl,2), rawPct(agg.pnlPct), '', rawNum(agg.dayPnl,2), rawPct(agg.dayPnlPct), '', '', '', '', ''
+  ]);
+  const now = new Date();
+  const stamp = now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '_' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0');
+  return {rows, headers, bodyRows, now, stamp};
+}
+function exportHoldingsTable(){
+  const data = buildHoldingsExportData();
+  if(!data.rows.length) return toast('当前没有持仓数据可以导出', true);
+  const {headers, bodyRows, now, stamp} = data;
+  const tableRows = [
+    `<tr>${headers.map(h => `<th>${excelEsc(h)}</th>`).join('')}</tr>`,
+    ...bodyRows.map(row => `<tr>${row.map(v => `<td>${excelEsc(v)}</td>`).join('')}</tr>`),
+  ].join('\n');
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
+  table{border-collapse:collapse}
+  th,td{border:1px solid #d0d7de;padding:6px 8px;white-space:nowrap;mso-number-format:"\\@";}
+  th{background:#eef2ff;font-weight:700}
+  td:nth-child(6),td:nth-child(7),td:nth-child(8),td:nth-child(9),td:nth-child(11),td:nth-child(14),td:nth-child(19){mso-number-format:"0.00";}
+  td:nth-child(10),td:nth-child(12),td:nth-child(13),td:nth-child(15){mso-number-format:"0.00%";}
+  caption{text-align:left;font-size:18px;font-weight:700;margin-bottom:10px}
+</style>
+</head>
+<body>
+<table>
+  <caption>全部持仓明细（${excelEsc(now.toLocaleString('zh-CN', {hour12:false}))}）</caption>
+  ${tableRows}
+</table>
+</body>
+</html>`;
+  const blob = new Blob(['\ufeff', html], {type:'application/vnd.ms-excel;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `全部持仓明细_${stamp}.xls`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('已导出持仓明细表格');
+}
+
+function xlsxColName(n){
+  let s = '';
+  while(n >= 0){
+    s = String.fromCharCode(65 + (n % 26)) + s;
+    n = Math.floor(n / 26) - 1;
+  }
+  return s;
+}
+function xlsxCellXml(v, r, c){
+  const ref = xlsxColName(c) + r;
+  const text = String(v ?? '');
+  if(text === '') return `<c r="${ref}"/>`;
+  return `<c r="${ref}" t="inlineStr"><is><t>${excelEsc(text)}</t></is></c>`;
+}
+function crc32(bytes){
+  if(!crc32.table){
+    const table = [];
+    for(let n=0; n<256; n++){
+      let c = n;
+      for(let k=0; k<8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      table[n] = c >>> 0;
+    }
+    crc32.table = table;
+  }
+  let c = 0xffffffff;
+  for(const b of bytes) c = crc32.table[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function zipDosTime(d){
+  return (d.getHours() << 11) | (d.getMinutes() << 5) | Math.floor(d.getSeconds() / 2);
+}
+function zipDosDate(d){
+  return ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+}
+function zipWrite16(view, off, v){ view.setUint16(off, v, true); }
+function zipWrite32(view, off, v){ view.setUint32(off, v >>> 0, true); }
+function concatBytes(chunks){
+  const total = chunks.reduce((s,a)=>s+a.length,0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for(const a of chunks){ out.set(a, off); off += a.length; }
+  return out;
+}
+function makeZip(files){
+  const enc = new TextEncoder();
+  const now = new Date();
+  const fileParts = [];
+  const centralParts = [];
+  let offset = 0;
+  for(const file of files){
+    const nameBytes = enc.encode(file.name);
+    const dataBytes = typeof file.data === 'string' ? enc.encode(file.data) : file.data;
+    const crc = crc32(dataBytes);
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    zipWrite32(lv, 0, 0x04034b50);
+    zipWrite16(lv, 4, 20);
+    zipWrite16(lv, 6, 0);
+    zipWrite16(lv, 8, 0);
+    zipWrite16(lv, 10, zipDosTime(now));
+    zipWrite16(lv, 12, zipDosDate(now));
+    zipWrite32(lv, 14, crc);
+    zipWrite32(lv, 18, dataBytes.length);
+    zipWrite32(lv, 22, dataBytes.length);
+    zipWrite16(lv, 26, nameBytes.length);
+    zipWrite16(lv, 28, 0);
+    local.set(nameBytes, 30);
+    fileParts.push(local, dataBytes);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    zipWrite32(cv, 0, 0x02014b50);
+    zipWrite16(cv, 4, 20);
+    zipWrite16(cv, 6, 20);
+    zipWrite16(cv, 8, 0);
+    zipWrite16(cv, 10, 0);
+    zipWrite16(cv, 12, zipDosTime(now));
+    zipWrite16(cv, 14, zipDosDate(now));
+    zipWrite32(cv, 16, crc);
+    zipWrite32(cv, 20, dataBytes.length);
+    zipWrite32(cv, 24, dataBytes.length);
+    zipWrite16(cv, 28, nameBytes.length);
+    zipWrite16(cv, 30, 0);
+    zipWrite16(cv, 32, 0);
+    zipWrite16(cv, 34, 0);
+    zipWrite16(cv, 36, 0);
+    zipWrite32(cv, 38, 0);
+    zipWrite32(cv, 42, offset);
+    central.set(nameBytes, 46);
+    centralParts.push(central);
+    offset += local.length + dataBytes.length;
+  }
+  const centralSize = centralParts.reduce((s,a)=>s+a.length,0);
+  const end = new Uint8Array(22);
+  const ev = new DataView(end.buffer);
+  zipWrite32(ev, 0, 0x06054b50);
+  zipWrite16(ev, 4, 0);
+  zipWrite16(ev, 6, 0);
+  zipWrite16(ev, 8, files.length);
+  zipWrite16(ev, 10, files.length);
+  zipWrite32(ev, 12, centralSize);
+  zipWrite32(ev, 16, offset);
+  zipWrite16(ev, 20, 0);
+  return concatBytes([...fileParts, ...centralParts, end]);
+}
+function exportHoldingsXlsx(){
+  const data = buildHoldingsExportData();
+  if(!data.rows.length) return toast('当前没有持仓数据可以导出', true);
+  const {headers, bodyRows, now, stamp} = data;
+  const allRows = [headers, ...bodyRows];
+  const sheetRows = allRows.map((row, i) => {
+    const r = i + 1;
+    return `<row r="${r}">${row.map((v,c)=>xlsxCellXml(v, r, c)).join('')}</row>`;
+  }).join('');
+  const widths = headers.map((h, c) => {
+    const maxLen = Math.min(28, Math.max(String(h).length, ...bodyRows.map(r => String(r[c] ?? '').length)));
+    return `<col min="${c+1}" max="${c+1}" width="${Math.max(10, maxLen + 2)}" customWidth="1"/>`;
+  }).join('');
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <cols>${widths}</cols>
+  <sheetData>${sheetRows}</sheetData>
+</worksheet>`;
+  const files = [
+    {name:'[Content_Types].xml', data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`},
+    {name:'_rels/.rels', data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`},
+    {name:'xl/workbook.xml', data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="全部持仓明细" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`},
+    {name:'xl/_rels/workbook.xml.rels', data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`},
+    {name:'xl/styles.xml', data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="1"><font><sz val="11"/><name val="Arial"/></font></fonts>
+  <fills count="1"><fill><patternFill patternType="none"/></fill></fills>
+  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`},
+    {name:'xl/worksheets/sheet1.xml', data:sheet},
+    {name:'docProps/core.xml', data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>全部持仓明细</dc:title><dc:creator>stock-fund-dashboard</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${now.toISOString()}</dcterms:created>
+</cp:coreProperties>`},
+    {name:'docProps/app.xml', data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>stock-fund-dashboard</Application></Properties>`},
+  ];
+  const bytes = makeZip(files);
+  const blob = new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `全部持仓明细_${stamp}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('已导出 XLSX');
+}
+
 /* ---------- 9b. 导出整页为图片 ---------- */
 let _h2cReady = null;
 function loadHtml2Canvas(){
@@ -3750,12 +4417,12 @@ async function exportAsImage(){
   const btn = document.getElementById('btnExportImg');
   const orig = btn.textContent;
   btn.disabled = true; btn.textContent = '生成中…';
+  let restoreExportMode = null;
   try{
     const h2c = await loadHtml2Canvas();
     const target = document.querySelector('main');
-    // 临时关闭 sticky（截图时不希望表头浮在上面），并展开滚动
-    const stickyCells = target.querySelectorAll('thead th');
-    stickyCells.forEach(c => c.style.position = 'static');
+    restoreExportMode = enterFullHoldingsExportMode(target);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const canvas = await h2c(target, {
       backgroundColor: getComputedStyle(document.body).backgroundColor || '#0f1419',
       scale: window.devicePixelRatio >= 2 ? 2 : Math.max(1.5, window.devicePixelRatio || 1),
@@ -3763,29 +4430,86 @@ async function exportAsImage(){
       logging: false,
       windowWidth: target.scrollWidth,
       windowHeight: target.scrollHeight,
+      width: target.scrollWidth,
+      height: target.scrollHeight,
     });
-    stickyCells.forEach(c => c.style.position = '');
     // 顶部加一行标题（日期 + 总市值），让图片本身自带语境
-    const finalCanvas = decorateExportImage(canvas);
-    finalCanvas.toBlob(blob => {
-      if(!blob) return toast('导出失败：无法生成图片', true);
-      const ts = new Date().toISOString().replace(/[T:]/g,'-').slice(0,16);
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `持仓看板_${ts}.png`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-      toast('已导出为 PNG');
-    }, 'image/png');
+    const finalCanvas = decorateExportImage(canvas, '全部持仓明细');
+    const blob = await canvasToBlob(finalCanvas);
+    if(!blob) throw new Error('无法生成图片');
+    const ts = new Date().toISOString().replace(/[T:]/g,'-').slice(0,16);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `全部持仓明细_${ts}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+    toast('已导出全部持仓 PNG');
   }catch(e){
     toast('导出失败：' + e.message, true);
     console.error(e);
   }finally{
+    if(restoreExportMode) restoreExportMode();
     btn.disabled = false; btn.textContent = orig;
   }
 }
 
-function decorateExportImage(canvas){
+function enterFullHoldingsExportMode(target){
+  const style = document.createElement('style');
+  style.textContent = `
+    body.exporting-holdings-image main button,
+    body.exporting-holdings-image main input[type="checkbox"],
+    body.exporting-holdings-image main .chart-block {
+      display:none !important;
+    }
+    body.exporting-holdings-image .card.platform-card.collapsed .table-wrap {
+      display:block !important;
+    }
+    body.exporting-holdings-image .card.platform-card:not(.collapsed) .table-wrap,
+    body.exporting-holdings-image .card.platform-card .table-wrap {
+      max-height:none !important;
+      overflow:visible !important;
+    }
+    body.exporting-holdings-image .card.platform-card thead th {
+      position:static !important;
+      top:auto !important;
+      box-shadow:none !important;
+    }
+    body.exporting-holdings-image .card.platform-card.collapsed .group-title .toggle-arrow {
+      transform:none !important;
+    }
+    body.exporting-holdings-image .more-menu,
+    body.exporting-holdings-image .modal-bg,
+    body.exporting-holdings-image .toast {
+      display:none !important;
+    }
+  `;
+  document.head.appendChild(style);
+  document.body.classList.add('exporting-holdings-image');
+  const touched = [];
+  const set = (el, prop, val) => {
+    touched.push([el, prop, el.style[prop]]);
+    el.style[prop] = val;
+  };
+  target.querySelectorAll('.platform-card').forEach(card => set(card, 'overflow', 'visible'));
+  target.querySelectorAll('.table-wrap').forEach(wrap => {
+    set(wrap, 'maxHeight', 'none');
+    set(wrap, 'overflow', 'visible');
+  });
+  const oldScroll = {x: window.scrollX, y: window.scrollY};
+  window.scrollTo(0, 0);
+  return () => {
+    for(const [el, prop, old] of touched){ el.style[prop] = old; }
+    document.body.classList.remove('exporting-holdings-image');
+    style.remove();
+    window.scrollTo(oldScroll.x, oldScroll.y);
+  };
+}
+
+function canvasToBlob(canvas){
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+}
+
+function decorateExportImage(canvas, title='持仓盈亏看板'){
   const headerH = 60;
   const out = document.createElement('canvas');
   out.width = canvas.width;
@@ -3798,7 +4522,7 @@ function decorateExportImage(canvas){
   ctx.fillStyle = '#e6edf3';
   ctx.font = `bold ${24*scale}px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
   ctx.textBaseline = 'middle';
-  ctx.fillText('持仓盈亏看板', 24*scale, (headerH/2)*scale);
+  ctx.fillText(title, 24*scale, (headerH/2)*scale);
   ctx.fillStyle = '#8b97a8';
   ctx.font = `${13*scale}px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
   const ts = new Date().toLocaleString('zh-CN', {hour12:false});
@@ -3888,6 +4612,155 @@ async function _tryAcquireWakeLock(){
 }
 _tryAcquireWakeLock();
 
+/* ---------- 持仓诊断 ---------- */
+function diagEsc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function diagLiveRows(){
+  return state.positions.filter(p => {
+    const hasTrades = Array.isArray(p.trades) && p.trades.length > 0;
+    return !((parseFloat(p.shares) || 0) <= 0 && hasTrades);
+  }).map(p => _lastRowsByPos[p.id] || {
+    ...p, q:null, error:true, mv:null, cost:null, pnl:null, pnlPct:null, dayPnl:null, dayPnlPct:null
+  });
+}
+function diagGroup(rows, keyFn){
+  const map = {};
+  for(const r of rows){
+    const keys = keyFn(r);
+    const arr = Array.isArray(keys) ? keys : [keys];
+    for(const k of arr.filter(Boolean)){
+      map[k] ||= { name:k, mv:0, pnl:0, dayPnl:0, count:0 };
+      map[k].count++;
+      if(!r.error){
+        map[k].mv += r.mv || 0;
+        map[k].pnl += r.pnl || 0;
+        map[k].dayPnl += r.dayPnl || 0;
+      }
+    }
+  }
+  return Object.values(map).sort((a,b)=>b.mv-a.mv);
+}
+function diagItem(level, title, body){
+  return { level, title, body };
+}
+function diagTopTable(rows, cols){
+  if(!rows.length) return '<div style="color:var(--muted);font-size:12px;padding:10px 0">暂无数据</div>';
+  return `<table class="diag-table"><thead><tr>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(r => `<tr>${cols.map(c=>`<td class="${c.cls ? c.cls(r) : ''}">${c.html ? c.html(r) : diagEsc(c.get(r))}</td>`).join('')}</tr>`).join('')
+  }</tbody></table>`;
+}
+function renderDiagnosis(){
+  const host = document.getElementById('diagHost');
+  const rows = diagLiveRows();
+  const ok = rows.filter(r => !r.error);
+  const agg = aggregate(rows);
+  const totalMv = agg.mv || 0;
+  const capitals = state.settings.capitals || {};
+  const totalCapital = Object.values(capitals).reduce((s,v)=>s+(parseFloat(v)||0),0);
+  const items = [];
+  const dataItems = [];
+  const watchItems = [];
+  if(!rows.length){
+    host.innerHTML = '<div class="empty" style="padding:28px 12px">还没有持仓数据，新增持仓后就可以诊断。</div>';
+    return;
+  }
+  if(ok.length === 0){
+    host.innerHTML = '<div class="empty" style="padding:28px 12px">当前还没有可用行情。请先点“刷新行情”，再打开持仓诊断。</div>';
+    return;
+  }
+  const byPlatform = diagGroup(rows, r => r.platform || '未分类');
+  const byTheme = diagGroup(rows, r => (r.themes && r.themes.length) ? r.themes : ['未分类']);
+  const byType = diagGroup(rows, r => r.type === 'fund' ? '场外基金' : (isETF(r) ? 'ETF/LOF' : 'A股个股'));
+  const topHolding = ok.slice().sort((a,b)=>(b.mv||0)-(a.mv||0))[0];
+  const topPlatform = byPlatform[0];
+  const topTheme = byTheme[0];
+  const errorRows = rows.filter(r => r.error);
+  const estimateFunds = ok.filter(r => r.type === 'fund' && r.q && r.q.source !== 'real');
+  const yjbRows = ok.filter(r => r.overrideSource === 'yangjibao');
+  const staleRows = ok.filter(r => r.staleEstimate);
+  const pendingRows = rows.filter(r => (r.trades || []).some(t => t.pending));
+  const pendingAmount = pendingRows.reduce((s,r)=>s+(r.trades||[]).filter(t=>t.pending).reduce((a,t)=>a+(parseFloat(t.pendingAmount || t.amount)||0),0),0);
+  if(topHolding && totalMv > 0){
+    const share = topHolding.mv / totalMv;
+    if(share >= 0.25) items.push(diagItem('bad', '单只持仓集中度偏高', `${diagEsc(topHolding.name || topHolding.code)} 占当前持仓市值 ${fmt.pct(share)}，单一标的波动会明显影响组合。`));
+    else if(share >= 0.15) items.push(diagItem('warn', '单只持仓需要关注', `${diagEsc(topHolding.name || topHolding.code)} 占当前持仓市值 ${fmt.pct(share)}。`));
+  }
+  if(topPlatform && totalMv > 0 && topPlatform.mv / totalMv >= 0.65){
+    items.push(diagItem('warn', '平台集中度较高', `${diagEsc(topPlatform.name)} 占持仓市值 ${fmt.pct(topPlatform.mv / totalMv)}，注意平台口径和现金统计是否完整。`));
+  }
+  if(topTheme && totalMv > 0 && topTheme.name !== '未分类' && topTheme.mv / totalMv >= 0.45){
+    items.push(diagItem('warn', '题材集中度较高', `${diagEsc(topTheme.name)} 相关持仓占 ${fmt.pct(topTheme.mv / totalMv)}，同题材可能存在同步涨跌。`));
+  }
+  const loser = ok.filter(r => (r.pnlPct || 0) <= -0.10).sort((a,b)=>(a.pnlPct||0)-(b.pnlPct||0));
+  if(loser.length){
+    items.push(diagItem('warn', '有持仓累计回撤超过 10%', `${loser.slice(0,3).map(r=>diagEsc(r.name || r.code) + ' ' + fmt.pct(r.pnlPct)).join('、')}。`));
+  }
+  if(totalCapital > 0){
+    const cash = totalCapital - totalMv;
+    if(cash < -1) items.push(diagItem('bad', '总资金小于持仓市值', `当前持仓市值 ${fmt.money(totalMv)}，维护的总资金 ${fmt.money(totalCapital)}，现金为 ${fmt.money(cash)}，请检查资金设置是否漏填。`));
+    else if(totalMv / totalCapital >= 0.95) items.push(diagItem('warn', '整体仓位接近满仓', `按已维护资金计算，当前仓位 ${fmt.pct(totalMv / totalCapital)}，可用现金约 ${fmt.money(cash)}。`));
+  }
+  for(const g of byPlatform){
+    const cap = parseFloat(capitals[g.name]) || 0;
+    if(cap > 0 && g.mv - cap > 1){
+      items.push(diagItem('bad', `${diagEsc(g.name)} 现金为负`, `该平台资金 ${fmt.money(cap)}，持仓市值 ${fmt.money(g.mv)}，差额 ${fmt.money(cap - g.mv)}。`));
+    }
+  }
+  if(errorRows.length) dataItems.push(diagItem('bad', '部分行情获取失败', `${errorRows.length} 项持仓暂时没有行情：${errorRows.slice(0,5).map(r=>diagEsc(r.code)).join('、')}。`));
+  if(estimateFunds.length) dataItems.push(diagItem('warn', '部分基金仍是估值口径', `${estimateFunds.length} 只基金还不是今日真实净值，其中养基宝覆盖 ${yjbRows.length} 只。真实净值发布后看板会优先显示“真实”。`));
+  if(staleRows.length) dataItems.push(diagItem('warn', '估算净值可能滞后', `${staleRows.length} 只基金的数据源提示估值日期较旧，建议稍后刷新。`));
+  if(pendingRows.length) dataItems.push(diagItem('warn', '存在待确认交易', `${pendingRows.length} 项持仓有待确认交易，合计约 ${fmt.money(pendingAmount)}，会影响最终份额和成本。`));
+  const dayMoves = ok.filter(r => r.dayPnl != null).sort((a,b)=>Math.abs(b.dayPnl||0)-Math.abs(a.dayPnl||0)).slice(0,5);
+  if(dayMoves.length){
+    watchItems.push(diagItem('good', '今日主要波动来源', dayMoves.map(r=>`${diagEsc(r.name || r.code)} ${fmt.signedMoney(r.dayPnl)} (${fmt.pct(r.dayPnlPct)})`).join('、')));
+  }
+  const smallRows = ok.filter(r => (r.mv || 0) > 0 && (r.mv || 0) < 1000);
+  if(smallRows.length >= 3) watchItems.push(diagItem('warn', '小额持仓较多', `${smallRows.length} 项持仓市值低于 ¥1,000，后续可以考虑是否还需要单独跟踪。`));
+  if(!items.length) items.push(diagItem('good', '未发现明显结构性风险', '当前持仓没有触发集中度、现金或大幅回撤阈值。'));
+  if(!dataItems.length) dataItems.push(diagItem('good', '数据状态正常', '当前持仓行情均可计算，未发现待确认交易或明显滞后提示。'));
+  let score = 100;
+  score -= Math.min(35, items.filter(i=>i.level==='bad').length*18 + items.filter(i=>i.level==='warn').length*8);
+  score -= Math.min(25, dataItems.filter(i=>i.level==='bad').length*15 + dataItems.filter(i=>i.level==='warn').length*6);
+  score = Math.max(0, Math.round(score));
+  const topRows = ok.slice().sort((a,b)=>(b.mv||0)-(a.mv||0)).slice(0,8);
+  const typeRows = byType.map(g => ({...g, share: totalMv > 0 ? g.mv / totalMv : null}));
+  const section = (title, arr) => `<div class="diag-section"><h3>${title}</h3><div class="diag-list">${arr.map(i=>`<div class="diag-item ${i.level}"><b>${diagEsc(i.title)}</b><br>${i.body}</div>`).join('')}</div></div>`;
+  host.innerHTML = `
+    <div style="color:var(--muted);font-size:12px;line-height:1.6;margin-top:-4px">基于当前看板持仓与最近一次行情计算，仅做数据体检，不构成投资建议。</div>
+    <div class="diag-grid">
+      <div class="diag-card"><div class="k">诊断分</div><div class="v">${score}</div><div class="diag-bar"><span style="width:${score}%"></span></div></div>
+      <div class="diag-card"><div class="k">持仓市值</div><div class="v">${fmt.money(totalMv)}</div></div>
+      <div class="diag-card"><div class="k">累计盈亏</div><div class="v ${cls(agg.pnl)}">${fmt.signedMoney(agg.pnl)}</div><div style="font-size:12px;color:var(--muted)">${fmt.pct(agg.pnlPct)}</div></div>
+      <div class="diag-card"><div class="k">今日盈亏</div><div class="v ${cls(agg.dayPnl)}">${fmt.signedMoney(agg.dayPnl)}</div><div style="font-size:12px;color:var(--muted)">${fmt.pct(agg.dayPnlPct)}</div></div>
+      <div class="diag-card"><div class="k">持仓数量</div><div class="v">${ok.length}</div><div style="font-size:12px;color:var(--muted)">异常 ${errorRows.length}</div></div>
+    </div>
+    ${section('重点风险', items)}
+    ${section('数据与交易状态', dataItems)}
+    ${section('观察清单', watchItems)}
+    <div class="diag-section"><h3>结构分布</h3>${diagTopTable(typeRows, [
+      {label:'类别', get:r=>r.name},
+      {label:'数量', get:r=>r.count},
+      {label:'市值', html:r=>fmt.money(r.mv)},
+      {label:'占比', html:r=>fmt.pct(r.share)}
+    ])}</div>
+    <div class="diag-section"><h3>前 8 大持仓</h3>${diagTopTable(topRows, [
+      {label:'名称', html:r=>`${diagEsc(r.name || r.code)}<div style="color:var(--muted);font-size:10px">${diagEsc(r.platform || '未分类')} · ${diagEsc((r.themes || []).join(' / ') || '未分类')}</div>`},
+      {label:'市值', html:r=>fmt.money(r.mv)},
+      {label:'占比', html:r=>fmt.pct(totalMv > 0 ? r.mv / totalMv : null)},
+      {label:'累计', html:r=>fmt.signedMoney(r.pnl), cls:r=>cls(r.pnl)},
+      {label:'今日', html:r=>fmt.signedMoney(r.dayPnl), cls:r=>cls(r.dayPnl)}
+    ])}</div>
+  `;
+}
+function openDiagnosis(){
+  renderDiagnosis();
+  document.getElementById('diagModal').classList.add('open');
+}
+function closeDiagnosis(){
+  document.getElementById('diagModal').classList.remove('open');
+}
+
 /* ---------- 11. 事件绑定 ---------- */
 document.getElementById('btnAdd').addEventListener('click', ()=>openEdit(null));
 
@@ -3928,6 +4801,14 @@ document.getElementById('btnRefresh').addEventListener('click', e => {
 document.getElementById('btnCancel').addEventListener('click', closeEdit);
 document.getElementById('btnSave').addEventListener('click', saveEdit);
 document.getElementById('btnDelete').addEventListener('click', deleteEdit);
+document.getElementById('btnDiag').addEventListener('click', openDiagnosis);
+document.getElementById('btnDiagRefresh').addEventListener('click', renderDiagnosis);
+document.getElementById('btnDiagClose').addEventListener('click', closeDiagnosis);
+document.getElementById('btnYjb').addEventListener('click', openYjb);
+document.getElementById('btnYjbLogin').addEventListener('click', startYjbLogin);
+document.getElementById('btnYjbSync').addEventListener('click', syncYjbEstimates);
+document.getElementById('btnYjbLogout').addEventListener('click', logoutYjb);
+document.getElementById('btnYjbClose').addEventListener('click', closeYjb);
 document.getElementById('btnIO').addEventListener('click', openIO);
 document.getElementById('btnIOClose').addEventListener('click', closeIO);
 document.getElementById('btnExport').addEventListener('click', exportData);
@@ -3939,6 +4820,8 @@ document.getElementById('ioFileInput').addEventListener('change', e => {
   e.target.value = ''; // 允许重复选同一个文件
 });
 document.getElementById('btnExportImg').addEventListener('click', exportAsImage);
+document.getElementById('btnExportTable').addEventListener('click', exportHoldingsTable);
+document.getElementById('btnExportXlsx').addEventListener('click', exportHoldingsXlsx);
 document.getElementById('btnClearTheme').addEventListener('click', e => {
   e.stopPropagation();
   ui.themeFilter = null;
@@ -4188,9 +5071,8 @@ async function runDueDcaPlans(){
       const dup = (p.trades || []).some(t => t.dcaPlanId === plan.id && t.date === dStr);
       if(dup){ lastRun = next; continue; }
       const tNDays = +plan.tNDays || 1;
-      const navDate = tNDays === 2
-        ? (() => { const d = new Date(next); d.setDate(d.getDate()+1); return dateStr(d); })()
-        : dStr;
+      // QDII 通常 T+2 确认，但成交净值仍归属下单日 T；不要取 T+1 净值。
+      const navDate = dStr;
       const confirmDate = (() => { const d = new Date(next); d.setDate(d.getDate() + tNDays); return dateStr(d); })();
       // 按基金限额扣减本期金额
       const planAmt = +plan.amount;
@@ -4252,7 +5134,8 @@ async function autoConfirmPendingTrades(){
     const hist = histMap[code];
     if(!hist) continue;
     for(const item of dueByCode[code]){
-      const navDate = item.t.navDate;
+      // 老版本曾把 T+2/QDII 的 navDate 存成下单日 + 1；这里统一按下单日净值确认。
+      const navDate = item.t.date || item.t.navDate;
       // 找该日（或最近一个 ≤ 该日的交易日）的净值
       let nav = hist[navDate];
       if(!nav){
@@ -4285,7 +5168,6 @@ async function autoConfirmPendingTrades(){
       item.t.note = (item.t.note || '').replace(/T\+\d 待净值确认/, '') + ` (净值已确认 ${nav})`;
       // 更新持仓
       item.p.shares = newShares;  // 已经按 2 位四舍五入
-      item.p.costPrice = Math.round(newCost * 10000) / 10000;  // 成本价 4 位
       item.p.costPrice = Math.round(newCost * 10000) / 10000;  // 成本价 4 位
       item.p.updatedAt = Date.now();
       confirmed++;
@@ -4364,27 +5246,18 @@ function buildSnapshotForDate(date, stockHist, fundHist, forceCurrent){
     } else {
       const hist = fundHist[p.code];
       if(!hist) continue;
-      // 普通基金 T 日 21 点公布 T 日净值，无需偏移；
-      // QDII 基金 T+1 日才公布 T 日净值，体感日要往后挪一天
-      const isQDII = /QDII|qdii/.test(p.name || '') || /QDII/.test(p.note || '');
-      if(isQDII){
-        const closeDate = previousTradingDate(hist, date);
-        if(!closeDate) continue;
-        close = hist[closeDate];
-        prevClose = previousValue(hist, closeDate, h => h);
-      } else {
-        close = hist[date];
-        prevClose = previousValue(hist, date, h => h);
-        // 兜底：今天那一行如果真实净值还没发布，用当前刷新的估算值（gsz）
-        if((!close || isNaN(close)) && isToday){
-          const live = _lastRowsByPos && _lastRowsByPos[p.id];
-          if(live && !live.error && live.q && !isNaN(live.q.price)){
-            close = live.q.price;
-            // prevClose 取 hist 里最近的真实净值（即上一交易日）
-            if(!prevClose) prevClose = previousValue(hist, date, h => h);
-            estimated = true;
-            hasEstimated = true;
-          }
+      // F10 历史净值的日期就是净值归属日。QDII 只是公布更晚，不能把日期整体前移。
+      close = hist[date];
+      prevClose = previousValue(hist, date, h => h);
+      // 兜底：今天那一行如果真实净值还没发布，用当前刷新的估算值/最近真实值。
+      if((!close || isNaN(close)) && isToday){
+        const live = _lastRowsByPos && _lastRowsByPos[p.id];
+        if(live && !live.error && live.q && !isNaN(live.q.price)){
+          close = live.q.price;
+          // prevClose 取 hist 里最近的真实净值（即上一交易日）
+          if(!prevClose) prevClose = previousValue(hist, date, h => h);
+          estimated = !!(live.q.estimated || live.q.staleEstimate);
+          if(estimated) hasEstimated = true;
         }
       }
     }
@@ -4495,16 +5368,6 @@ function positionAtReverse(p, date){
   }
   if(shares <= 0) return null;
   return { shares, cost: costTotal / shares };
-}
-
-function previousTradingDate(hist, date){
-  const dates = Object.keys(hist).sort();
-  let prev = null;
-  for(const d of dates){
-    if(d < date) prev = d;
-    else break;
-  }
-  return prev;
 }
 
 // 找 date 之前的最近一个值
@@ -5563,12 +6426,7 @@ function renderPendingList(){
         const pad2 = n => String(n).padStart(2,'0');
         const ds = d => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
         t.confirmDate = ds(conf);
-        if(newTn === 2){
-          const nv = new Date(start); nv.setDate(nv.getDate()+1);
-          t.navDate = ds(nv);
-        } else {
-          t.navDate = t.date;
-        }
+        t.navDate = t.date;
       }
       p.updatedAt = Date.now();
       save();
@@ -6129,7 +6987,7 @@ function saveTrade(){
       return toast('卖出建议直接录入份额 + 成交价，不走待确认流程', true);
     }
     const tNDays = pendingMode === 't2' ? 2 : 1;
-    // 计算 confirmDate：下单日 + tN（QDII 是用 T+1 日的净值，但要 T+2 才发布）
+    // 计算 confirmDate：下单日 + tN（QDII 往往 T+2 确认，但成交净值仍归属下单日 T）
     const confirm = new Date(dateStr + 'T00:00:00');
     confirm.setDate(confirm.getDate() + tNDays);
     const confirmDateStr = confirm.getFullYear()+'-'+String(confirm.getMonth()+1).padStart(2,'0')+'-'+String(confirm.getDate()).padStart(2,'0');
@@ -6140,9 +6998,7 @@ function saveTrade(){
       dir: 'buy',
       pending: true,
       tNDays,
-      navDate: tNDays === 2
-        ? (() => { const d = new Date(dateStr + 'T00:00:00'); d.setDate(d.getDate()+1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })()
-        : dateStr, // T+1: 用 T 日净值；T+2 (QDII): 用 T+1 日净值
+      navDate: dateStr,
       confirmDate: confirmDateStr,
       pendingAmount: amt,
       shares: 0,
@@ -6512,10 +7368,19 @@ document.getElementById('autoRefresh').value = String(state.settings.autoRefresh
 
 // 关闭模态：点击背景或 Esc
 document.querySelectorAll('.modal-bg').forEach(bg=>{
-  bg.addEventListener('click', e=>{ if(e.target===bg) bg.classList.remove('open'); });
+  bg.addEventListener('click', e=>{
+    if(e.target!==bg) return;
+    if(bg.id === 'yjbModal') closeYjb();
+    else bg.classList.remove('open');
+  });
 });
 document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){ document.querySelectorAll('.modal-bg.open').forEach(m=>m.classList.remove('open')); }
+  if(e.key==='Escape'){
+    document.querySelectorAll('.modal-bg.open').forEach(m=>{
+      if(m.id === 'yjbModal') closeYjb();
+      else m.classList.remove('open');
+    });
+  }
   if(e.key==='Enter' && document.getElementById('editModal').classList.contains('open') && e.target.tagName==='INPUT'){ saveEdit(); }
 });
 
@@ -6544,6 +7409,9 @@ document.getElementById('f_code').addEventListener('blur', e => {
 
 /* ---------- 12. 启动 ---------- */
 render({});
+pullDesktopTracking().then(changed => {
+  if(changed) render(_lastRowsByPos || {});
+});
 if(state.positions.length){ doRefresh(); }
 setupAutoRefresh();
 </script>
